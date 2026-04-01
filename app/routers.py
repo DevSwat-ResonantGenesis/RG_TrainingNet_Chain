@@ -12,6 +12,11 @@ from typing import Dict, Any, List, Optional
 from .consensus import get_consensus, RaftConsensus
 from .p2p_network import get_network, P2PNetwork
 from .distributed_chain import get_distributed_blockchain, DistributedBlockchain
+from .auth_middleware import (
+    AuthenticatedUser,
+    get_current_user,
+    check_rate_limit,
+)
 
 router = APIRouter(prefix="/distributed", tags=["distributed-blockchain"])
 
@@ -81,8 +86,10 @@ async def get_p2p() -> P2PNetwork:
 async def submit_transaction(
     request: TransactionRequest,
     blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Submit a transaction to the distributed blockchain."""
+    check_rate_limit(user.user_id or "anon", "gradient_submit")
     tx = {
         "tx_type": request.tx_type,
         **request.payload,
@@ -96,6 +103,7 @@ async def submit_transaction(
 @router.get("/blocks/latest", response_model=BlockResponse)
 async def get_latest_block(
     blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Get the latest block."""
     block = blockchain.get_latest_block()
@@ -117,6 +125,7 @@ async def get_latest_block(
 async def get_block(
     number: int,
     blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Get a block by number."""
     block = blockchain.get_block(number)
@@ -137,6 +146,7 @@ async def get_block(
 @router.get("/status", response_model=NodeStatusResponse)
 async def get_node_status(
     blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Get node status."""
     status = blockchain.get_status()
@@ -146,6 +156,7 @@ async def get_node_status(
 @router.get("/chain/verify")
 async def verify_chain(
     blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Verify chain integrity."""
     return blockchain.verify_chain()
@@ -155,6 +166,7 @@ async def verify_chain(
 async def get_state(
     key: str,
     blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Get state value."""
     value = blockchain.get_state(key)
@@ -208,6 +220,7 @@ async def get_consensus_status(
 @router.get("/peers")
 async def get_peers(
     network: P2PNetwork = Depends(get_p2p),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Get connected peers."""
     return {
@@ -221,7 +234,10 @@ async def connect_to_peer(
     address: str,
     port: int = 8600,
     network: P2PNetwork = Depends(get_p2p),
+    user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Connect to a new peer."""
+    if not user.is_admin() and user.auth_method != "dev":
+        raise HTTPException(status_code=403, detail="Admin role required to connect peers")
     success = await network._connect_to_peer(address, port)
     return {"success": success}

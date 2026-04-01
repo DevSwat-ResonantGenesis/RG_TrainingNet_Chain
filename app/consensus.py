@@ -62,8 +62,8 @@ class RaftConsensus:
         self.current_term = 0
         self.voted_for = None
         self.log: List[LogEntry] = []
-        self.commit_index = 0
-        self.last_applied = 0
+        self.commit_index = -1
+        self.last_applied = -1
         self.state = NodeState.FOLLOWER
         self.leader_id = None
         self.peers: Dict[str, NodeInfo] = {}
@@ -171,7 +171,8 @@ class RaftConsensus:
         if self.state != NodeState.LEADER:
             return
         indices = sorted([p.match_index for p in self.peers.values()] + [len(self.log) - 1], reverse=True)
-        majority = (len(self.peers) + 1) // 2
+        total_nodes = len(self.peers) + 1  # +1 for self
+        majority = (total_nodes + 1) // 2  # ceil(total/2)
         if len(indices) >= majority:
             n = indices[majority - 1]
             if n > self.commit_index and n < len(self.log) and self.log[n].term == self.current_term:
