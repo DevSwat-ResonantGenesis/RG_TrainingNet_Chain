@@ -1,8 +1,9 @@
 """
-DISTRIBUTED BLOCKCHAIN API ENDPOINTS
-=====================================
+ResonantGenesis Blockchain API Endpoints
+=========================================
 
-API for the real distributed blockchain with consensus.
+API for the ResonantGenesis distributed blockchain with Raft consensus.
+Handles identity anchoring, training gradient records, and $RGT token ledger.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -19,6 +20,7 @@ from .auth_middleware import (
 )
 
 router = APIRouter(prefix="/distributed", tags=["distributed-blockchain"])
+identity_router = APIRouter(prefix="/identity", tags=["identity"])
 
 
 class TransactionRequest(BaseModel):
@@ -78,6 +80,111 @@ async def get_consensus_node() -> RaftConsensus:
 
 async def get_p2p() -> P2PNetwork:
     return await get_network()
+
+
+# === IDENTITY ENDPOINTS (called by auth_service on registration) ===
+
+class IdentityRegisterRequest(BaseModel):
+    user_id: str
+    crypto_hash: str
+    user_hash: str
+    universe_id: str
+    email: Optional[str] = None
+
+
+class IdentityResponse(BaseModel):
+    user_id: str
+    crypto_hash: str
+    user_hash: str
+    universe_id: str
+    tx_hash: str
+    block_anchored: bool
+    registered_at: str
+
+
+@identity_router.post("/register", response_model=IdentityResponse)
+async def register_identity(
+    payload: IdentityRegisterRequest,
+    blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Anchor a user's cryptographic identity on the ResonantGenesis Blockchain.
+    Called by auth_service during user registration.
+
+    Creates an immutable on-chain record binding:
+      - user_id (platform UUID)
+      - crypto_hash (SHA-256 blockchain identity)
+      - user_hash (Hash Sphere semantic identity)
+      - universe_id (Deterministic Anchor Universe)
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    tx = {
+        "tx_type": "identity_register",
+        "user_id": payload.user_id,
+        "crypto_hash": payload.crypto_hash,
+        "user_hash": payload.user_hash,
+        "universe_id": payload.universe_id,
+        "email_hash": __import__("hashlib").sha256(
+            (payload.email or "").encode()
+        ).hexdigest() if payload.email else None,
+        "registered_at": now,
+    }
+
+    tx_hash = await blockchain.submit_transaction(tx)
+
+    return IdentityResponse(
+        user_id=payload.user_id,
+        crypto_hash=payload.crypto_hash,
+        user_hash=payload.user_hash,
+        universe_id=payload.universe_id,
+        tx_hash=tx_hash,
+        block_anchored=False,  # Will be anchored in next block
+        registered_at=now,
+    )
+
+
+@identity_router.get("/{user_id}", response_model=Optional[IdentityResponse])
+async def get_identity(
+    user_id: str,
+    blockchain: DistributedBlockchain = Depends(get_blockchain),
+    user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Look up a user's on-chain identity by user_id.
+    Searches the blockchain state and transaction history.
+    """
+    # Check state machine first (fast path)
+    state_key = f"identity:{user_id}"
+    identity = blockchain.get_state(state_key)
+    if identity:
+        return IdentityResponse(
+            user_id=identity.get("user_id", user_id),
+            crypto_hash=identity.get("crypto_hash", ""),
+            user_hash=identity.get("user_hash", ""),
+            universe_id=identity.get("universe_id", ""),
+            tx_hash=identity.get("tx_hash", ""),
+            block_anchored=True,
+            registered_at=identity.get("registered_at", ""),
+        )
+
+    # Scan pending transactions
+    for tx in blockchain.pending_transactions:
+        if tx.get("tx_type") == "identity_register" and tx.get("user_id") == user_id:
+            return IdentityResponse(
+                user_id=tx["user_id"],
+                crypto_hash=tx.get("crypto_hash", ""),
+                user_hash=tx.get("user_hash", ""),
+                universe_id=tx.get("universe_id", ""),
+                tx_hash=tx.get("tx_hash", ""),
+                block_anchored=False,
+                registered_at=tx.get("registered_at", ""),
+            )
+
+    raise HTTPException(status_code=404, detail="Identity not found on chain")
 
 
 # === BLOCKCHAIN ENDPOINTS ===

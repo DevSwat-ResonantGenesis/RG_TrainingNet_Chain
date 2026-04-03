@@ -24,7 +24,7 @@ except ImportError:
     HAS_SHARED_ERRORS = False
     setup_exception_handlers = None
 
-from .routers import router
+from .routers import router, identity_router
 from .distributed_chain import get_distributed_blockchain
 
 
@@ -65,8 +65,8 @@ else:
     ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 app = FastAPI(
-    title="RG External Blockchain",
-    description="Distributed chain: Raft consensus, P2P network, block production, fork handling",
+    title="ResonantGenesis Blockchain",
+    description="ResonantGenesis Blockchain: Raft consensus, P2P network, identity anchoring, $RGT token ledger",
     version="0.1.0",
     lifespan=lifespan,
     redirect_slashes=False,
@@ -89,13 +89,14 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(identity_router)
 
 
 @app.get("/")
 async def root():
-    return {"service": "rg-external-blockchain", "version": "0.1.0"}
+    return {"service": "resonantgenesis-blockchain", "version": "0.1.0", "chain_id": "resonant-genesis-external-1"}
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "rg-external-blockchain"}
+    return {"status": "ok", "service": "resonantgenesis-blockchain"}
