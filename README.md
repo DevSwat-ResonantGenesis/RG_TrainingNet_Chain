@@ -6,7 +6,7 @@ The sovereign distributed blockchain for the ResonantGenesis network — own cha
 
 | Module | Chain Type | Purpose |
 |--------|-----------|---------|
-| **RG_Blockchain** (internal) | Internal ledger | DSID logging, governance, Hash Sphere memory, agent identity |
+| **RG_DSID_Blockchain** (internal) | Internal ledger | DSID logging, governance, Hash Sphere memory, agent identity |
 | **RG_external_blockchain** (this) | Own distributed chain | Raft consensus, P2P gossip, block production, fork handling |
 | **Cross-chain** (Base/ETH) | External L2/L1 | Agent identity anchoring, $RGT token on Base mainnet |
 
