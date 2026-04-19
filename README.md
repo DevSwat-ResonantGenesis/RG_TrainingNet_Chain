@@ -1,14 +1,23 @@
-# RG External Blockchain
+# RG_TrainingNet_Chain
 
-The sovereign distributed blockchain for the ResonantGenesis network — own chain with Raft consensus, P2P networking, and block production.
+The **Training Network's distributed blockchain** — Raft consensus, P2P gossip, block production, and fork handling. Coordinates distributed LLM training across the network.
 
-## Architecture: 3 Blockchain Split
+> **Part of the Training Network** (3 repos):
+> - **RG_TrainingNet_Chain** (this) — Raft consensus chain, block production
+> - **RG_TrainingNet_Mining** — Gradient aggregation, sharded training, RGT rewards
+> - **RG_TrainingNet_Lighthouse** — Peer discovery, network beacon
 
-| Module | Chain Type | Purpose |
-|--------|-----------|---------|
-| **RG_DSID_Blockchain** (internal) | Internal ledger | DSID logging, governance, Hash Sphere memory, agent identity |
-| **RG_external_blockchain** (this) | Own distributed chain | Raft consensus, P2P gossip, block production, fork handling |
-| **Cross-chain** (Base/ETH) | External L2/L1 | Agent identity anchoring, $RGT token on Base mainnet |
+> **Not to be confused with:**
+> - **RG_DSID_Blockchain** — Internal audit/governance ledger (separate chain, different purpose)
+> - **RG_DSID_Node** — DSID execution layer (agent runtime, Base Sepolia anchoring)
+
+## Architecture: Platform Chains
+
+| Chain | Repo(s) | Purpose |
+|-------|---------|---------|
+| **DSID** (internal) | `RG_DSID_Blockchain` + `RG_DSID_Node` | Audit, governance, agent identity, ETH anchoring |
+| **Training Network** (this) | `RG_TrainingNet_Chain` + `Mining` + `Lighthouse` | Distributed LLM training coordination, RGT mining |
+| **Cross-chain** (Base/ETH) | — | Identity anchoring target, $RGT token |
 
 ## Components
 
